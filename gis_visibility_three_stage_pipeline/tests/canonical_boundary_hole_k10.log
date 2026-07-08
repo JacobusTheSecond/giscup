@@ -1,0 +1,57 @@
+gis_cup_visibility revision EDGECANON1.
+Warning: --threads ignored because OpenMP is unavailable.
+Loaded 1 polygons and 8 original boundary edges in 0.0234907 s.
+Stage 1 candidate seeds: 8 original polygon vertices.
+Building one global CDT from 8 original footprint edges (boundary samples are not inserted)...
+CDT built: 12 vertices, 18 finite faces in 0.000565712 s.
+CDT metadata/query sites indexed in 0.000242094 s.
+Stage 1 visibility candidates are unlimited in distance.
+Vertex visibility candidates: 8/8 visibility polygons, 25260.7/s, avg 4.9 faces and 4.0 candidate vertices/polygon.
+Built 24 visibility-polygon vertex candidates; 16 incident-edge candidate occurrences were slid along their landing edge by 0.001 m, and 16 mathematically equal same-edge candidate occurrences were unified. Lazy identity filtering performed 24 exact-equality probes and materialized 16/32 generated exact parameters.
+Stage 2 candidates: 72 total = 24 visibility-polygon vertices plus 48 unchanged boundary subdivision points across 24 intervals (3 equal part(s) per interval); only incident-edge degeneracies use the 0.001 m landing-edge slide.
+Candidate visibility: 72/72 visibility polygons, 29106.2/s, avg 4.1 faces and 7.1 boundary endpoints/polygon.
+Visibility-induced discretization ready: 72 candidates and 113 weighted boundary intervals; CDT has 12 vertices and 18 finite faces; total preprocessing 0.00636153 s.
+Visibility cache: 72/72 candidates, 28457.1/s, avg 4.1 faces, 3.2 blockers, 43.5 visible samples/candidate, cache 0.00 MiB
+Built visibility cache (0.00354385 MiB, 3132 candidate-sample memberships).
+Writing visibility cache in the background while evaluation views are prepared.
+Expanded visibility cache to CSR with parallel row decoding in 7.249e-05 s (0.01 MiB evaluation memory).
+Move evaluation will consider 72/72 candidate representatives.
+Built candidate-visible-polygon map: 72 candidate-polygon memberships, avg 1.00 visible polygons/search candidate in 0.00 s (no reverse polygon index).
+Built bounded-anchor reverse lookup: 72 candidate-polygon memberships in 0.00 s. It is not used by hot/cold 1-swap invalidation.
+Background visibility-cache write completed in 0.00 s: "/tmp/canon_hole.cache"
+Optimization timeline: "/tmp/canon_hole/optimization_timeline.csv"
+Move 1 add candidate=0 cardinality=1 score=1/1
+Swap local optimum at cardinality=1 after evaluating 71 replacements from 71 hot candidates; skipped 0 cold candidates [swap].
+Move 2 add candidate=2 cardinality=2 score=1/1
+Swap local optimum at cardinality=2 after evaluating 140 replacements from 70 hot candidates; skipped 0 cold candidates [swap].
+Move 3 add candidate=4 cardinality=3 score=1/1
+Swap local optimum at cardinality=3 after evaluating 207 replacements from 69 hot candidates; skipped 0 cold candidates [swap].
+Move 4 add candidate=1 cardinality=4 score=1/1
+Swap local optimum at cardinality=4 after evaluating 272 replacements from 68 hot candidates; skipped 0 cold candidates [swap].
+Move 5 add candidate=3 cardinality=5 score=1/1
+Swap local optimum at cardinality=5 after evaluating 335 replacements from 67 hot candidates; skipped 0 cold candidates [swap].
+Move 6 add candidate=5 cardinality=6 score=1/1
+Swap local optimum at cardinality=6 after evaluating 396 replacements from 66 hot candidates; skipped 0 cold candidates [swap].
+Move 7 add candidate=6 cardinality=7 score=1/1
+Swap local optimum at cardinality=7 after evaluating 455 replacements from 65 hot candidates; skipped 0 cold candidates [swap].
+Move 8 add candidate=7 cardinality=8 score=1/1
+Swap local optimum at cardinality=8 after evaluating 512 replacements from 64 hot candidates; skipped 0 cold candidates [swap].
+Move 9 add candidate=8 cardinality=9 score=1/1
+Swap local optimum at cardinality=9 after evaluating 567 replacements from 63 hot candidates; skipped 0 cold candidates [swap].
+Move 10 add candidate=9 cardinality=10 score=1/1
+Swap local optimum at cardinality=10 after evaluating 620 replacements from 62 hot candidates; skipped 0 cold candidates [swap].
+Selected 10 points after add/swap search with m=1.000000. QGIS snapshots are in "/tmp/canon_hole"
+Optimization timeline is in "/tmp/canon_hole/optimization_timeline.csv"
+CGAL verifier: constructing an exact arrangement from 8 source edges...
+CGAL verifier: guard 1/10 checked.
+CGAL verifier: guard 2/10 checked.
+CGAL verifier: guard 3/10 checked.
+CGAL verifier: guard 4/10 checked.
+CGAL verifier: guard 5/10 checked.
+CGAL verifier: guard 6/10 checked.
+CGAL verifier: guard 7/10 checked.
+CGAL verifier: guard 8/10 checked.
+CGAL verifier: guard 9/10 checked.
+CGAL verifier: guard 10/10 checked.
+CGAL verifier: solution is feasible; real score=1/1, cached score=1/1, delta=0.
+CGAL verifier reports: "/tmp/canon_hole/cgal_verification.csv" and "/tmp/canon_hole/cgal_verification.txt" (0.006902 s).

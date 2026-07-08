@@ -1,0 +1,25 @@
+Loaded 1 polygons and 8 original boundary edges in 0.0303245 s.
+Stage 1 candidate seeds: 8 original polygon vertices.
+Building one global CDT from 8 original footprint edges (boundary samples are not inserted)...
+CDT built: 12 vertices, 18 finite faces in 0.000895604 s.
+CDT metadata/query sites indexed in 0.000310357 s.
+Stage 1 visibility candidates are unlimited in distance.
+Built 30 visibility-polygon vertex candidates; 16 incident-edge candidate occurrences were offset by 0.001 m, and 10 exactly equal same-edge duplicates were removed.
+Stage 2 candidates: 30 visibility-polygon vertices; only incident-edge degeneracies use the 0.001 m normal offset.
+Visibility-induced discretization ready: 30 candidates and 37 weighted boundary intervals; CDT has 12 vertices and 18 finite faces; total preprocessing 0.00467836 s.
+Built visibility cache (0.000786781 MiB, 577 candidate-sample memberships).
+Expanded visibility cache to CSR with parallel row decoding in 2.3473e-05 s (0.00 MiB evaluation memory).
+Prepared exact-row deduplication: parallel hashing 0.00 s, deterministic grouping 0.00 s.
+Removed 19 objective-equivalent candidate(s) with identical visibility rows; 11 representatives remain.
+Move evaluation will consider 11/30 candidate representatives.
+Built candidate-visible-polygon map: 11 candidate-polygon memberships, avg 1.00 visible polygons/search candidate in 0.00 s (no reverse polygon index).
+Built bounded-anchor reverse lookup: 11 candidate-polygon memberships in 0.00 s. It is not used by hot/cold 1-swap invalidation.
+Optimization timeline: "/tmp/final_hole/optimization_timeline.csv"
+Move 1 add candidate=0 cardinality=1 score=1/1
+Swap local optimum at cardinality=1 after evaluating 10 replacements from 10 hot candidates; skipped 0 cold candidates [swap].
+Selected 1 points after add/swap search with m=1.000000. QGIS snapshots are in "/tmp/final_hole"
+Optimization timeline is in "/tmp/final_hole/optimization_timeline.csv"
+CGAL verifier: constructing an exact arrangement from 8 source edges...
+CGAL verifier: guard 1/1 checked.
+CGAL verifier: solution is feasible; real score=1/1, cached score=1/1, delta=0.
+CGAL verifier reports: "/tmp/final_hole/cgal_verification.csv" and "/tmp/final_hole/cgal_verification.txt" (0.003455 s).

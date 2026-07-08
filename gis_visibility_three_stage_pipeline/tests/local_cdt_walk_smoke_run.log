@@ -1,0 +1,29 @@
+Loaded 2 polygons and 8 original boundary edges in 0.0319229 s.
+Stage 1 candidate seeds: 8 original polygon vertices.
+Building one global CDT from 8 original footprint edges (boundary samples are not inserted)...
+CDT built: 12 vertices, 18 finite faces in 0.00111838 s.
+CDT metadata/query sites indexed in 0.000386795 s.
+Stage 1 visibility cuts are limited to 8 m from each generating polygon vertex.
+Vertex visibility: 8/8 visibility polygons, 10991.3/s, avg 10.9 faces and 2.0 boundary endpoints/polygon.
+Stage 2 candidates: 16 boundary points after 2 equal subdivision(s) per vertex-visibility interval.
+Candidate visibility: 16/16 visibility polygons, 12833.4/s, avg 9.7 faces and 4.9 boundary endpoints/polygon.
+Visibility-induced discretization ready: 16 candidates and 16 weighted boundary intervals; CDT has 12 vertices and 18 finite faces; total preprocessing 0.00566611 s.
+Visibility cache: 16/16 candidates, 13638.2/s, avg 9.7 faces, 4.2 blockers, 4.2 visible samples/candidate, cache 0.00 MiB
+Built visibility cache (0.00019455 MiB, 68 candidate-sample memberships).
+Expanded visibility cache to CSR in 9.638e-06 s (0.00 MiB evaluation memory).
+Removed 3 objective-equivalent candidate(s) with identical visibility rows; 13 representatives remain.
+Move evaluation will consider 13/16 candidate representatives.
+Built candidate-visible-polygon map: 16 candidate-polygon memberships, avg 1.23 visible polygons/search candidate in 0.00 s (no reverse polygon index).
+Built bounded-anchor reverse lookup: 16 candidate-polygon memberships in 0.00 s. It is not used by hot/cold 1-swap invalidation.
+Optimization timeline: "/tmp/local_walk_final_smoke/optimization_timeline.csv"
+Move 1 add candidate=2 cardinality=1 score=2/2
+Swap local optimum at cardinality=1 after evaluating 12 replacements from 12 hot candidates; skipped 0 cold candidates [swap].
+Move 2 add candidate=4 cardinality=2 score=2/2
+Swap local optimum at cardinality=2 after evaluating 22 replacements from 11 hot candidates; skipped 0 cold candidates [swap].
+Move 3 add candidate=0 cardinality=3 score=2/2
+Move 4 swap out=2 in=10 slot=1 cardinality=3 score=2/2, checked_hot=10, changed_polygons=2, state_round=4
+Swap local optimum at cardinality=3 after evaluating 30 replacements from 10 hot candidates; skipped 0 cold candidates [swap].
+Move 5 add candidate=1 cardinality=4 score=2/2
+Swap local optimum at cardinality=4 after evaluating 36 replacements from 9 hot candidates; skipped 0 cold candidates [swap].
+Selected 4 points after add/swap search with m=0.750000. QGIS snapshots are in "/tmp/local_walk_final_smoke"
+Optimization timeline is in "/tmp/local_walk_final_smoke/optimization_timeline.csv"

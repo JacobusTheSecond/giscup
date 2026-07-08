@@ -1,0 +1,4 @@
+Building one global CDT from 8 original footprint edges (boundary samples are not inserted)...
+CDT built: 12 vertices, 18 finite faces in 0.000404107 s.
+CDT metadata/query sites indexed in 0.000228148 s.
+candidates=16 coverage_samples=16 comparisons=256 mismatches=0

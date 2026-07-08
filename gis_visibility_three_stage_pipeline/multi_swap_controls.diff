@@ -1,0 +1,353 @@
+--- /mnt/data/orig_local_walk/gis_visibility_exact_boundary_local_walk/src/main.cpp	2026-06-30 14:49:01.000000000 +0000
++++ /mnt/data/gis_visibility_exact_boundary_multi_swap_controls/src/main.cpp	2026-07-01 11:12:45.697840680 +0000
+@@ -151,6 +151,13 @@
+     std::size_t max_swap_passes = 0; // 0 means until local optimum.
+     double swap_improvement_epsilon = 1e-8;
+     bool multi_swap_polish = true;
++    // Restricted CP-SAT may replace at most this many incumbent guards.
++    std::size_t multi_swap_max_new = 3;
++    // Run the restricted neighborhood only after every Nth add/cardinality round.
++    std::size_t multi_swap_every = 1;
++    // Maximum restricted CP-SAT attempts at one scheduled cardinality.
++    // Zero means continue until the first non-improving attempt.
++    std::size_t multi_swap_max_rounds = 0;
+     std::size_t multi_swap_extra_count = 100;
+     double multi_swap_time_limit = 30.0;
+     std::size_t multi_swap_partners_per_anchor = 1;
+@@ -275,8 +282,12 @@
+ Local search:
+   --max-swap-passes INT         Accepted best swaps per cardinality; 0 means until local optimum.
+   --swap-epsilon FLOAT          Required tie-break improvement in visible metres (default 1e-8).
+-  --multi-swap-extra-count INT  Base anchor candidates for the 2/3-swap CP-SAT round (default 100).
+-  --multi-swap-time-limit SEC   Time limit for each 2/3-swap CP-SAT round (default 30).
++  --multi-swap-max-new A        Consider exchanges introducing at most A new guards (default 3).
++  --multi-swap-every B          Run the restricted A-swap phase every Bth add round (default 1).
++  --multi-swap-max-rounds N     At most N restricted CP-SAT attempts per scheduled add round;
++                                0 means continue until the first miss (default 0).
++  --multi-swap-extra-count INT  Base anchor candidates for the restricted CP-SAT round (default 100).
++  --multi-swap-time-limit SEC   Time limit for each restricted CP-SAT attempt (default 30).
+   --multi-swap-partners-per-anchor N
+                                 Append up to N conditioned partners per anchor (default 1).
+   --multi-swap-anchor-polygon-samples N
+@@ -285,7 +296,7 @@
+                                 Evaluate at most N sampled partners per anchor; 0 means all
+                                 candidates in the sampled polygon lists (default 256).
+   --multi-swap-anchor-seed INT  Deterministic anchor-subsampling seed (default 1).
+-  --no-multi-swap               Disable the intermediate at-most-three-new-candidate CP-SAT round.
++  --no-multi-swap               Disable the intermediate restricted CP-SAT neighborhood.
+ 
+ Output / cache:
+   --output-dir PATH             QGIS-ready GeoJSON snapshots (default gis_cup_output).
+@@ -354,6 +365,9 @@
+         else if (arg == "--boundary-epsilon") options.boundary_epsilon = parse_number<double>(value(arg), arg);
+         else if (arg == "--max-swap-passes") options.max_swap_passes = parse_number<std::size_t>(value(arg), arg);
+         else if (arg == "--swap-epsilon") options.swap_improvement_epsilon = parse_number<double>(value(arg), arg);
++        else if (arg == "--multi-swap-max-new") options.multi_swap_max_new = parse_number<std::size_t>(value(arg), arg);
++        else if (arg == "--multi-swap-every") options.multi_swap_every = parse_number<std::size_t>(value(arg), arg);
++        else if (arg == "--multi-swap-max-rounds") options.multi_swap_max_rounds = parse_number<std::size_t>(value(arg), arg);
+         else if (arg == "--multi-swap-extra-count") options.multi_swap_extra_count = parse_number<std::size_t>(value(arg), arg);
+         else if (arg == "--multi-swap-time-limit") options.multi_swap_time_limit = parse_number<double>(value(arg), arg);
+         else if (arg == "--multi-swap-partners-per-anchor") options.multi_swap_partners_per_anchor = parse_number<std::size_t>(value(arg), arg);
+@@ -413,6 +427,12 @@
+     if (options.bbox_padding <= 0.0) throw std::runtime_error("--bbox-padding must be positive");
+     if (options.boundary_epsilon < 0.0) throw std::runtime_error("--boundary-epsilon must be nonnegative");
+     if (options.swap_improvement_epsilon < 0.0) throw std::runtime_error("--swap-epsilon must be nonnegative");
++    if (options.multi_swap_polish && options.multi_swap_max_new == 0) {
++        throw std::runtime_error("--multi-swap-max-new must be positive unless --no-multi-swap is used");
++    }
++    if (options.multi_swap_every == 0) {
++        throw std::runtime_error("--multi-swap-every must be positive");
++    }
+     if (options.multi_swap_polish && options.multi_swap_extra_count == 0) {
+         throw std::runtime_error("--multi-swap-extra-count must be positive unless --no-multi-swap is used");
+     }
+@@ -3082,7 +3102,7 @@
+     std::vector<std::size_t> pool = build_polish_pool(
+         scene, cache, selected, current_cover_count, current_covered,
+         selected.size(), threshold, options.multi_swap_extra_count,
+-        verbose, "2/3-swap anchor", &base_evaluation);
++        verbose, "restricted multi-swap anchor", &base_evaluation);
+ 
+     const std::size_t anchor_end = pool.size();
+     const std::size_t anchor_count = anchor_end - selected.size();
+@@ -3135,7 +3155,7 @@
+     };
+ 
+     if (verbose) {
+-        std::cout << "2/3-swap pair-aware pool expansion: anchors=" << anchor_count
++        std::cout << "Restricted multi-swap pair-aware pool expansion: anchors=" << anchor_count
+                   << ", partners_per_anchor="
+                   << options.multi_swap_partners_per_anchor
+                   << ", polygon_samples="
+@@ -3255,8 +3275,8 @@
+         if (partner_candidates.empty()) continue;
+ 
+         // Keep the anchor fixed while ranking complementary partners. The
+-        // resulting candidates enter one flat CP-SAT pool, where any at-most-3
+-        // combination is permitted.
++        // resulting candidates enter one flat CP-SAT pool, where any combination
++        // of at most --multi-swap-max-new newcomers is permitted.
+         const ReplacementNeighborhoodEvaluation conditional =
+             evaluate_replacement_neighborhood(
+                 scene, cache, provisional_selected,
+@@ -3317,7 +3337,7 @@
+             pool.push_back(partner.candidate);
+             ++partners_added;
+             if (verbose) {
+-                std::cout << "2/3-swap conditional partner: anchor=" << anchor
++                std::cout << "Restricted multi-swap conditional partner: anchor=" << anchor
+                           << ", sampled_polygons=" << anchor_polygons.size()
+                           << ", sampled_candidates="
+                           << partner_candidates.size()
+@@ -3338,11 +3358,12 @@
+     }
+ 
+     if (verbose) {
+-        std::cout << "2/3-swap expanded raw pool complete: incumbents="
++        std::cout << "Restricted multi-swap expanded raw pool complete: incumbents="
+                   << selected.size() << ", anchors=" << anchor_count
+                   << ", conditional_partners=" << partners_added
+                   << ", total_pool=" << pool.size()
+-                  << ". CP-SAT may select any at-most-three extras.\n";
++                  << ". CP-SAT may select at most "
++                  << options.multi_swap_max_new << " extras.\n";
+     }
+     return pool;
+ }
+@@ -4144,25 +4165,58 @@
+                              add_move.cardinality, covered, best_add);
+         }
+ 
+-        // Alternate complete 1-swap descent with one restricted CP-SAT pool
+-        // search that may introduce at most three temporary candidates. A CP-SAT
+-        // improvement returns to 1-swap descent; a miss advances to the next add.
++        // Always finish the hot-candidate 1-swap descent.  The more expensive
++        // restricted CP-SAT neighborhood is scheduled only every Bth add round,
++        // may introduce at most A newcomers, and may run for at most N attempts
++        // at this cardinality.  An accepted restricted move returns to 1-swap.
++        const bool multi_swap_scheduled =
++            options.multi_swap_polish &&
++            selected.size() > options.multi_swap_max_new &&
++            (target_cardinality % options.multi_swap_every == 0);
++        std::size_t multi_swap_round = 0;
+         while (true) {
+             (void)run_swap_descent(threshold, "swap");
+ 
+-            if (!options.multi_swap_polish || selected.size() <= 3) break;
++            if (!multi_swap_scheduled) {
++                if (verbose && options.multi_swap_polish &&
++                    selected.size() > options.multi_swap_max_new &&
++                    target_cardinality % options.multi_swap_every != 0) {
++                    std::cout << "Restricted up-to-" << options.multi_swap_max_new
++                              << "-swap CP-SAT skipped at add round "
++                              << target_cardinality << ": scheduled every "
++                              << options.multi_swap_every << " rounds.\n";
++                }
++                break;
++            }
++            if (options.multi_swap_max_rounds != 0 &&
++                multi_swap_round >= options.multi_swap_max_rounds) {
++                if (verbose) {
++                    std::cout << "Restricted up-to-" << options.multi_swap_max_new
++                              << "-swap CP-SAT reached --multi-swap-max-rounds="
++                              << options.multi_swap_max_rounds
++                              << " at add round " << target_cardinality
++                              << "; advancing to the next add.\n";
++                }
++                break;
++            }
++            ++multi_swap_round;
+ 
+             const int current_score = solution_score(scene, covered, threshold);
+             const double current_total = sum_covered(covered);
+             if (verbose) {
+-                std::cout << "2/3-swap CP-SAT at cardinality=" << selected.size()
++                std::cout << "Restricted up-to-" << options.multi_swap_max_new
++                          << "-swap CP-SAT round " << multi_swap_round
++                          << " at cardinality=" << selected.size()
+                           << ": incumbent score=" << current_score << "/" << polygon_count
+                           << ", covered=" << current_total << " m.\n";
+             }
+ 
+             if (timeline) {
+-                timeline->record("phase_start", "greedy_3swap_pool", move_number,
+-                                 selected.size(), covered);
++                timeline->record("phase_start", "greedy_multi_swap_pool", move_number,
++                                 selected.size(), covered,
++                                 std::numeric_limits<std::size_t>::max(),
++                                 std::numeric_limits<std::size_t>::max(),
++                                 multi_swap_round);
+             }
+             const std::vector<std::size_t> pool = build_multi_swap_anchor_pool(
+                 scene, cache, options, candidate_polygon_map,
+@@ -4170,19 +4224,25 @@
+                 covered, threshold, verbose);
+             if (pool.size() <= selected.size()) {
+                 if (verbose) {
+-                    std::cout << "2/3-swap CP-SAT skipped: no temporary candidate could be added.\n";
++                    std::cout << "Restricted up-to-" << options.multi_swap_max_new
++                              << "-swap CP-SAT skipped: no temporary candidate could be added.\n";
+                 }
+                 break;
+             }
+ 
+             if (timeline) {
+-                timeline->record("phase_start", "greedy_3swap", move_number,
+-                                 selected.size(), covered);
++                timeline->record("phase_start", "greedy_multi_swap", move_number,
++                                 selected.size(), covered,
++                                 std::numeric_limits<std::size_t>::max(),
++                                 std::numeric_limits<std::size_t>::max(),
++                                 multi_swap_round);
+             }
++            const std::string solve_label =
++                "up-to-" + std::to_string(options.multi_swap_max_new) + "-swap";
+             PoolSolveResult pool_result = solve_pool_cp_sat(
+                 scene, cache, options, pool, selected, selected.size(), threshold,
+-                std::size_t{3}, options.multi_swap_time_limit,
+-                "2/3-swap", verbose);
++                options.multi_swap_max_new, options.multi_swap_time_limit,
++                solve_label, verbose);
+             SelectionState candidate_state = evaluate_selection(
+                 scene, cache, pool_result.selected_candidates);
+             const int candidate_score = solution_score(
+@@ -4194,12 +4254,17 @@
+ 
+             if (!improves) {
+                 if (timeline) {
+-                    timeline->record("round_end_no_improvement", "greedy_3swap",
+-                                     move_number, selected.size(), covered);
++                    timeline->record("round_end_no_improvement", "greedy_multi_swap",
++                                     move_number, selected.size(), covered,
++                                     std::numeric_limits<std::size_t>::max(),
++                                     std::numeric_limits<std::size_t>::max(),
++                                     multi_swap_round);
+                 }
+                 if (verbose) {
+-                    std::cout << "2/3-swap CP-SAT found no strict improvement (status="
+-                              << pool_result.status << "). Advancing to the next add round.\n";
++                    std::cout << "Restricted up-to-" << options.multi_swap_max_new
++                              << "-swap CP-SAT found no strict improvement (status="
++                              << pool_result.status
++                              << "). Advancing to the next add round.\n";
+                 }
+                 break;
+             }
+@@ -4208,8 +4273,9 @@
+             for (const std::size_t candidate : pool_result.selected_candidates) {
+                 if (!selected_flag[candidate]) ++newcomers;
+             }
+-            if (newcomers > 3) {
+-                throw std::runtime_error("Restricted CP-SAT selected more than three new candidates");
++            if (newcomers > options.multi_swap_max_new) {
++                throw std::runtime_error(
++                    "Restricted CP-SAT selected more newcomers than --multi-swap-max-new");
+             }
+ 
+             selected = std::move(pool_result.selected_candidates);
+@@ -4219,7 +4285,7 @@
+             for (const std::size_t candidate : selected) selected_flag[candidate] = 1;
+ 
+             ++move_number;
+-            MoveInfo pool_move{move_number, "pool_3swap", selected.size(),
++            MoveInfo pool_move{move_number, "pool_multi_swap", selected.size(),
+                                std::numeric_limits<std::size_t>::max(),
+                                std::numeric_limits<std::size_t>::max(),
+                                std::numeric_limits<std::size_t>::max(),
+@@ -4227,16 +4293,21 @@
+             last_move = pool_move;
+             if (verbose) {
+                 std::cout << "Move " << move_number
+-                          << " pool_3swap cardinality=" << selected.size()
++                          << " pool_multi_swap cardinality=" << selected.size()
+                           << " newcomers=" << newcomers
++                          << " max_new=" << options.multi_swap_max_new
++                          << " round=" << multi_swap_round
+                           << " score=" << candidate_score << "/" << polygon_count
+                           << " covered=" << candidate_total
+                           << " m; returning to 1-swap descent.\n";
+             }
+             emit_snapshot(pool_move, false);
+             if (timeline) {
+-                timeline->record("accepted_move", "greedy_3swap", pool_move.move_number,
+-                                 pool_move.cardinality, covered);
++                timeline->record("accepted_move", "greedy_multi_swap",
++                                 pool_move.move_number, pool_move.cardinality, covered,
++                                 std::numeric_limits<std::size_t>::max(),
++                                 std::numeric_limits<std::size_t>::max(),
++                                 multi_swap_round);
+             }
+         }
+     }
+--- /mnt/data/orig_local_walk/gis_visibility_exact_boundary_local_walk/plot_optimization_timeline.py	2026-06-30 11:34:26.000000000 +0000
++++ /mnt/data/gis_visibility_exact_boundary_multi_swap_controls/plot_optimization_timeline.py	2026-07-01 11:12:00.500543735 +0000
+@@ -129,6 +129,8 @@
+ def human_phase(phase: str) -> str:
+     return {
+         "greedy_to_k": "Greedy + 1-swaps to k",
++        "greedy_multi_swap_pool": "Greedy-stage restricted pool",
++        "greedy_multi_swap": "Greedy-stage restricted multi-swap",
+         "greedy_3swap_pool": "Greedy-stage 2/3-swap pool",
+         "greedy_3swap": "Greedy-stage restricted 2/3-swap",
+         "post_k_pool_build": "Post-k pool construction",
+@@ -232,7 +234,7 @@
+             row.elapsed
+             for row in rows
+             if row.event == "phase_start" and row.phase in {
+-                "greedy_3swap", "post_k_cp_sat"
++                "greedy_multi_swap", "greedy_3swap", "post_k_cp_sat"
+             }
+         ),
+         None,
+--- /mnt/data/orig_local_walk/gis_visibility_exact_boundary_local_walk/README.md	2026-06-30 14:51:41.000000000 +0000
++++ /mnt/data/gis_visibility_exact_boundary_multi_swap_controls/README.md	2026-07-01 11:13:12.482028982 +0000
+@@ -1,8 +1,8 @@
+-# GIS Cup visibility solver — fast exact boundary CDT walk
++# GIS Cup visibility solver — scheduled restricted multi-swap
+ 
+-This project keeps the current visibility-induced candidates, bounded first-stage cuts, polygon-epoch 1-swap search, anchor-expanded restricted multi-swap CP-SAT, final polishing, and live plotting.
++This project keeps the fast exact-boundary local CDT walk, visibility-induced candidates, polygon-epoch hot-candidate 1-swap search, anchor-expanded restricted CP-SAT, final polishing, and live plotting.
+ 
+-The visibility engine has been changed so boundary queries remain exact **without** doing global recovery scans.
++The restricted multi-swap phase now has explicit controls for exchange size, cadence, and rounds per scheduled cardinality. The 1-swap implementation remains hot-candidate-only; selected guards are not assigned hot/cold state.
+ 
+ ## Fast exact-boundary visibility
+ 
+@@ -45,6 +45,27 @@
+ 
+ The legacy `--boundary-spacing` and `--candidate-spacing` options are accepted but ignored.
+ 
++
++## Restricted multi-swap scheduling
++
++The restricted CP-SAT neighborhood runs only after the configured add/cardinality rounds:
++
++- `--multi-swap-max-new A` allows at most `A` newcomers in the returned guard set.
++- `--multi-swap-every B` runs the phase only after every `B`th add round. For example, `B=4` schedules it at cardinalities 4, 8, 12, and so on.
++- `--multi-swap-max-rounds N` caps CP-SAT attempts at each scheduled cardinality. `0` keeps trying after improvements until the first miss.
++
++The phase runs only when the current cardinality is greater than `A`. Each accepted restricted move returns to a complete hot-candidate 1-swap descent. When the restricted solver misses or reaches its round cap, construction advances to the next add.
++
++Example:
++
++```bash
++--multi-swap-max-new 3 \
++--multi-swap-every 4 \
++--multi-swap-max-rounds 3
++```
++
++This means: consider up-to-3 exchanges every fourth add round, with at most three restricted CP-SAT attempts at each scheduled cardinality.
++
+ ## Build on macOS/Homebrew
+ 
+ ```bash
+@@ -99,6 +120,9 @@
+   --progress-every 1000 \
+   --snapshot-every 100 \
+   --max-swap-passes 0 \
++  --multi-swap-max-new 3 \
++  --multi-swap-every 1 \
++  --multi-swap-max-rounds 3 \
+   --multi-swap-extra-count 100 \
+   --multi-swap-time-limit 30 \
+   --multi-swap-partners-per-anchor 1 \

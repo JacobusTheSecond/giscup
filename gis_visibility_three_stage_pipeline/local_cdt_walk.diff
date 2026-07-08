@@ -1,0 +1,333 @@
+--- gis_visibility_exact_boundary_query/src/main.cpp	2026-06-30 14:43:16.378598004 +0000
++++ gis_visibility_exact_boundary_local_walk/src/main.cpp	2026-06-30 14:49:01.118284793 +0000
+@@ -1168,7 +1168,7 @@
+     struct WalkOutput {
+         std::vector<std::uint32_t> visible_samples;
+         std::vector<VisibleFragment> fragments;
+-        std::vector<Point> visible_source_vertices;
++        std::vector<CdtVertexHandle> grazing_vertices;
+         WalkStats stats;
+     };
+     struct FaceCoverage {
+@@ -1444,13 +1444,16 @@
+             QuerySite site;
+             site.query_point = exact_query;
+ 
++            // The incident fan is tiny. Deduplicate it locally instead of
++            // allocating and clearing a face_count-sized bitmap per candidate.
+             std::vector<CdtFaceHandle> incident_free_faces;
+-            std::vector<std::uint8_t> face_seen(face_count_, 0);
++            incident_free_faces.reserve(8);
+             auto append_face = [&](CdtFaceHandle face) {
+                 if (!is_free(face)) return;
+                 const std::uint32_t id = face->info().id;
+-                if (id >= face_seen.size() || face_seen[id] != 0) return;
+-                face_seen[id] = 1;
++                for (const CdtFaceHandle prior : incident_free_faces) {
++                    if (prior->info().id == id) return;
++                }
+                 incident_free_faces.push_back(face);
+             };
+ 
+@@ -1663,137 +1666,91 @@
+         }
+     }
+ 
+-    void append_collinear_ray_samples(
+-        const Point& query,
+-        const Point& unit,
+-        double angle,
+-        std::vector<std::uint32_t>& visible_samples) const
++    [[nodiscard]] CdtVertexHandle cdt_vertex_at(
++        const Point& point,
++        double epsilon_squared) const
+     {
+-        const double point_epsilon = std::max(1e-10, config_.boundary_epsilon * 0.25);
+-        const std::array<Point, 4> domain_corners{
+-            domain_box_.min_corner(),
+-            make_point(x(domain_box_.max_corner()), y(domain_box_.min_corner())),
+-            domain_box_.max_corner(),
+-            make_point(x(domain_box_.min_corner()), y(domain_box_.max_corner()))};
+-        double max_range = 0.0;
+-        for (const Point& corner : domain_corners) {
+-            max_range = std::max(max_range, distance(query, corner));
+-        }
+-        max_range = std::max(1.0, max_range + config_.bbox_padding);
+-        const double line_epsilon = std::max(1e-8, config_.boundary_epsilon * 4.0);
+-
+-        const Point ray_end = make_point(
+-            x(query) + max_range * x(unit),
+-            y(query) + max_range * y(unit));
+-        const Box query_box = segment_box(query, ray_end);
+-        std::vector<SegmentValue> nearby;
+-        source_segment_tree_.query(bgi::intersects(query_box), std::back_inserter(nearby));
+-
+-        double blocker_distance = max_range;
+-        for (const SegmentValue& item : nearby) {
+-            const SegmentData& obstacle = scene_.segments[item.second];
+-            const Point edge = subtract(obstacle.b, obstacle.a);
+-            const Point to_edge = subtract(obstacle.a, query);
+-            const double denominator = cross(unit, edge);
+-            if (std::abs(denominator) <= 1e-12) continue;
+-            const double ray_distance = cross(to_edge, edge) / denominator;
+-            const double edge_parameter = cross(to_edge, unit) / denominator;
+-            // Preserve the boundary convention: grazing an obstacle endpoint does
+-            // not block a ray, but crossing the interior of an edge does.
+-            if (ray_distance > point_epsilon && ray_distance < blocker_distance &&
+-                edge_parameter > 1e-8 && edge_parameter < 1.0 - 1e-8) {
+-                blocker_distance = ray_distance;
+-            }
+-        }
+-
+-        for (const SegmentValue& item : nearby) {
+-            const std::uint32_t sid = item.second;
+-            const SegmentData& segment = scene_.segments[sid];
+-            const Point qa = subtract(segment.a, query);
+-            const Point qb = subtract(segment.b, query);
+-            if (std::abs(cross(unit, qa)) > line_epsilon ||
+-                std::abs(cross(unit, qb)) > line_epsilon) {
+-                continue;
+-            }
+-            double ta = dot(qa, unit);
+-            double tb = dot(qb, unit);
+-            if (ta > tb) std::swap(ta, tb);
+-            const double lo = std::max(0.0, ta);
+-            const double hi = std::min(blocker_distance, tb);
+-            if (hi <= lo + point_epsilon) continue;
+-            const Point a = make_point(
+-                x(query) + lo * x(unit),
+-                y(query) + lo * y(unit));
+-            const Point b = make_point(
+-                x(query) + hi * x(unit),
+-                y(query) + hi * y(unit));
+-            append_fragment_samples(sid, a, b, visible_samples);
++        const auto found = cdt_vertex_by_key_.find(coordinate_key(x(point), y(point)));
++        if (found == cdt_vertex_by_key_.end()) return CdtVertexHandle();
++        if (squared_distance(to_point(found->second->point()), point) > epsilon_squared) {
++            return CdtVertexHandle();
+         }
+-        (void)angle;
++        return found->second;
+     }
+ 
+-    void append_collinear_boundary_samples(
+-        const BoundaryPoint& sample,
+-        const QuerySite& site,
++    void append_local_collinear_chain(
++        CdtVertexHandle start_vertex,
+         const Point& query,
+-        std::vector<std::uint32_t>& visible_samples) const
++        const Point& unit,
++        WalkOutput& output) const
+     {
+-        struct RayDirection {
+-            Point unit;
+-            double angle = 0.0;
+-        };
+-        std::vector<RayDirection> directions;
+-        directions.reserve(4);
+-        const double point_epsilon = std::max(1e-10, config_.boundary_epsilon * 0.25);
+-        const double point_epsilon_squared = point_epsilon * point_epsilon;
++        if (start_vertex == CdtVertexHandle()) return;
+ 
+-        auto direction_is_locally_free = [&](double angle) {
+-            angle = normalize_angle(angle);
+-            for (const QuerySeed& seed : site.seeds) {
+-                if (angle >= seed.wedge.lo - 1e-11 &&
+-                    angle <= seed.wedge.hi + 1e-11) {
+-                    return true;
+-                }
+-                const double wrapped = angle + TWO_PI;
+-                if (wrapped >= seed.wedge.lo - 1e-11 &&
+-                    wrapped <= seed.wedge.hi + 1e-11) {
+-                    return true;
+-                }
+-            }
+-            return false;
+-        };
++        const double point_epsilon =
++            std::max(1e-10, config_.boundary_epsilon * 0.25);
++        const double line_epsilon =
++            std::max(1e-11, config_.boundary_epsilon * 2.0);
+ 
+-        auto append_unit_direction = [&](const Point& unit) {
+-            const double angle = normalize_angle(std::atan2(y(unit), x(unit)));
+-            if (!direction_is_locally_free(angle)) return;
+-            for (const RayDirection& existing : directions) {
+-                if (std::abs(cross(unit, existing.unit)) <= 1e-12 &&
+-                    dot(unit, existing.unit) > 1.0 - 1e-12) {
+-                    return;
+-                }
++        std::vector<CdtVertexHandle> stack;
++        stack.reserve(8);
++        stack.push_back(start_vertex);
++        std::vector<CoordinateKey> visited_vertices;
++        visited_vertices.reserve(8);
++
++        while (!stack.empty()) {
++            const CdtVertexHandle vertex = stack.back();
++            stack.pop_back();
++            const Point current = to_point(vertex->point());
++            const CoordinateKey current_key = coordinate_key(x(current), y(current));
++            if (std::find(visited_vertices.begin(), visited_vertices.end(), current_key) !=
++                visited_vertices.end()) {
++                continue;
+             }
+-            directions.push_back({unit, angle});
+-        };
++            visited_vertices.push_back(current_key);
+ 
+-        auto append_direction = [&](const Point& endpoint) {
+-            const Point delta = subtract(endpoint, query);
+-            const double length = std::hypot(x(delta), y(delta));
+-            if (length * length <= point_epsilon_squared) return;
+-            const Point unit = make_point(x(delta) / length, y(delta) / length);
+-            append_unit_direction(unit);
+-            append_unit_direction(make_point(-x(unit), -y(unit)));
+-        };
++            const double current_t = dot(subtract(current, query), unit);
++            std::vector<SegmentKey> seen_edges;
++            seen_edges.reserve(8);
++
++            auto face = cdt_.incident_faces(vertex);
++            const auto done = face;
++            if (face == 0) continue;
++            do {
++                for (int i = 0; i < 3; ++i) {
++                    const CdtEdge edge(face, i);
++                    if (!cdt_.is_constrained(edge)) continue;
+ 
+-        for (const std::uint32_t sid : sample.incident_segments) {
+-            if (sid == std::numeric_limits<std::uint32_t>::max()) continue;
+-            const SegmentData& segment = scene_.segments.at(sid);
+-            append_direction(segment.a);
+-            append_direction(segment.b);
+-        }
++                    const CdtVertexHandle va = face->vertex(cdt_ccw(i));
++                    const CdtVertexHandle vb = face->vertex(cdt_cw(i));
++                    CdtVertexHandle other;
++                    if (va == vertex) other = vb;
++                    else if (vb == vertex) other = va;
++                    else continue;
++
++                    const Point other_point = to_point(other->point());
++                    const SegmentKey key = segment_key(current, other_point);
++                    if (std::find(seen_edges.begin(), seen_edges.end(), key) !=
++                        seen_edges.end()) {
++                        continue;
++                    }
++                    seen_edges.push_back(key);
+ 
+-        for (const RayDirection& ray : directions) {
+-            append_collinear_ray_samples(
+-                query, ray.unit, ray.angle, visible_samples);
++                    const Point delta = subtract(other_point, query);
++                    const double forward_t = dot(delta, unit);
++                    const double delta_length = std::hypot(x(delta), y(delta));
++                    if (forward_t <= current_t + point_epsilon ||
++                        std::abs(cross(unit, delta)) >
++                            line_epsilon * std::max(1.0, delta_length)) {
++                        continue;
++                    }
++
++                    const std::int64_t sid = constrained_source(face, i);
++                    if (sid < 0) continue;
++                    append_fragment_samples(sid, current, other_point, output.visible_samples);
++                    stack.push_back(other);
++                }
++                ++face;
++            } while (face != done);
+         }
+     }
+ 
+@@ -1814,12 +1771,10 @@
+ 
+         WalkOutput output;
+         output.visible_samples.reserve(128);
+-        output.visible_source_vertices.reserve(32);
++        output.grazing_vertices.reserve(16);
+         if (collect_fragments) output.fragments.reserve(64);
+         append_incident_boundary_visibility(
+             query_sample, q, collect_fragments, output);
+-        append_collinear_boundary_samples(
+-            query_sample, site, q, output.visible_samples);
+ 
+         std::vector<State> stack;
+         stack.reserve(128 + site.seeds.size());
+@@ -1863,17 +1818,16 @@
+                                 ? constrained_source(state.face, i) : -2;
+                             append_fragment_samples(sid, ca, cb, output.visible_samples);
+                             if (sid >= 0) {
+-                                const SegmentData& source =
+-                                    scene_.segments.at(static_cast<std::size_t>(sid));
+                                 const double vertex_epsilon =
+                                     std::max(1e-10, config_.boundary_epsilon * 0.25);
+                                 const double vertex_epsilon_squared =
+                                     vertex_epsilon * vertex_epsilon;
+                                 for (const Point& endpoint : {ca, cb}) {
+-                                    if (squared_distance(endpoint, source.a) <= vertex_epsilon_squared) {
+-                                        output.visible_source_vertices.push_back(source.a);
+-                                    } else if (squared_distance(endpoint, source.b) <= vertex_epsilon_squared) {
+-                                        output.visible_source_vertices.push_back(source.b);
++                                    const CdtVertexHandle vertex =
++                                        cdt_vertex_at(endpoint, vertex_epsilon_squared);
++                                    if (vertex != CdtVertexHandle() &&
++                                        squared_distance(endpoint, q) > vertex_epsilon_squared) {
++                                        output.grazing_vertices.push_back(vertex);
+                                     }
+                                 }
+                             }
+@@ -1887,22 +1841,22 @@
+             }
+         }
+ 
+-        // Rays through visible source vertices can continue along a collinear
+-        // boundary after grazing that vertex. These directions have zero angular
+-        // width, so the face walk cannot discover their positive-length boundary
+-        // intervals. Recover them explicitly without changing the polygonal area.
+-        std::vector<Point> grazing_directions;
+-        grazing_directions.reserve(output.visible_source_vertices.size());
++        // Preserve directly connected collinear boundary continuations using
++        // only the local constrained-edge fan at each visible CDT vertex. We do
++        // not launch global R-tree rays or full supporting-line walks.
++        std::vector<Point> processed_directions;
++        processed_directions.reserve(output.grazing_vertices.size());
+         const double grazing_epsilon =
+             std::max(1e-10, config_.boundary_epsilon * 0.25);
+         const double grazing_epsilon_squared = grazing_epsilon * grazing_epsilon;
+-        for (const Point& vertex : output.visible_source_vertices) {
+-            const Point delta = subtract(vertex, q);
++        for (const CdtVertexHandle vertex : output.grazing_vertices) {
++            const Point vertex_point = to_point(vertex->point());
++            const Point delta = subtract(vertex_point, q);
+             const double length = std::hypot(x(delta), y(delta));
+             if (length * length <= grazing_epsilon_squared) continue;
+             const Point unit = make_point(x(delta) / length, y(delta) / length);
+             bool duplicate = false;
+-            for (const Point& prior : grazing_directions) {
++            for (const Point& prior : processed_directions) {
+                 if (std::abs(cross(unit, prior)) <= 1e-12 &&
+                     dot(unit, prior) > 1.0 - 1e-12) {
+                     duplicate = true;
+@@ -1910,10 +1864,8 @@
+                 }
+             }
+             if (duplicate) continue;
+-            grazing_directions.push_back(unit);
+-            append_collinear_ray_samples(
+-                q, unit, normalize_angle(std::atan2(y(unit), x(unit))),
+-                output.visible_samples);
++            processed_directions.push_back(unit);
++            append_local_collinear_chain(vertex, q, unit, output);
+         }
+ 
+         std::sort(output.visible_samples.begin(), output.visible_samples.end());
+@@ -2028,7 +1980,7 @@
+ 
+ [[nodiscard]] std::uint64_t scene_fingerprint(const Scene& scene, const VisibilityConfig& config) {
+     std::uint64_t hash = 1469598103934665603ULL;
+-    constexpr std::uint64_t algorithm_revision = 0x4558414354515259ULL; // "EXACTQRY"
++    constexpr std::uint64_t algorithm_revision = 0x4C4F43414C515259ULL; // "LOCALQRY"
+     hash_value(hash, algorithm_revision);
+     hash_value(hash, config.bbox_padding);
+     hash_value(hash, config.boundary_epsilon);

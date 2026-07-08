@@ -1,0 +1,27 @@
+Loaded 1 polygons and 8 original boundary edges in 0.0285181 s.
+Stage 1 candidate seeds: 8 original polygon vertices.
+Building one global CDT from 8 original footprint edges (boundary samples are not inserted)...
+CDT built: 12 vertices, 18 finite faces in 0.000919078 s.
+CDT metadata/query sites indexed in 0.000347703 s.
+Stage 1 visibility cuts are unlimited in distance.
+Vertex visibility: 8/8 visibility polygons, 24498.1/s, avg 4.9 faces and 6.0 boundary endpoints/polygon.
+Stage 2 candidates: 16 points offset 0.001 m into free space after 2 equal subdivision(s) per vertex-visibility interval.
+Candidate visibility: 16/16 visibility polygons, 39433.1/s, avg 3.8 faces and 5.6 boundary endpoints/polygon.
+Visibility-induced discretization ready: 16 candidates and 11 weighted boundary intervals; CDT has 12 vertices and 18 finite faces; total preprocessing 0.00416089 s.
+Visibility cache: 16/16 candidates, 43397.5/s, avg 3.8 faces, 4.3 blockers, 3.4 visible samples/candidate, cache 0.00 MiB
+Built visibility cache (0.000181198 MiB, 54 candidate-sample memberships).
+Expanded visibility cache to CSR with parallel row decoding in 6.556e-06 s (0.00 MiB evaluation memory).
+Prepared exact-row deduplication: parallel hashing 0.00 s, deterministic grouping 0.00 s.
+Removed 10 objective-equivalent candidate(s) with identical visibility rows; 6 representatives remain.
+Move evaluation will consider 6/16 candidate representatives.
+Built candidate-visible-polygon map: 6 candidate-polygon memberships, avg 1.00 visible polygons/search candidate in 0.00 s (no reverse polygon index).
+Built bounded-anchor reverse lookup: 6 candidate-polygon memberships in 0.00 s. It is not used by hot/cold 1-swap invalidation.
+Optimization timeline: "/tmp/gis_final_hole/optimization_timeline.csv"
+Move 1 add candidate=8 cardinality=1 score=1/1
+Swap local optimum at cardinality=1 after evaluating 5 replacements from 5 hot candidates; skipped 0 cold candidates [swap].
+Selected 1 points after add/swap search with m=1.000000. QGIS snapshots are in "/tmp/gis_final_hole"
+Optimization timeline is in "/tmp/gis_final_hole/optimization_timeline.csv"
+CGAL verifier: constructing an exact arrangement from 8 source edges...
+CGAL verifier: guard 1/1 checked.
+CGAL verifier: solution is feasible; real score=1/1, cached score=1/1, delta=0.
+CGAL verifier reports: "/tmp/gis_final_hole/cgal_verification.csv" and "/tmp/gis_final_hole/cgal_verification.txt" (0.003791 s).

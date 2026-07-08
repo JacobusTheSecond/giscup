@@ -1,0 +1,42 @@
+Loaded 2 polygons and 8 original boundary edges in 0.0340307 s.
+Stage 1 candidate seeds: 8 original polygon vertices.
+Building one global CDT from 8 original footprint edges (boundary samples are not inserted)...
+CDT built: 12 vertices, 18 finite faces in 0.000532791 s.
+CDT metadata/query sites indexed in 5.992e-05 s.
+Stage 1 visibility cuts are limited to 8 m from each generating polygon vertex.
+Vertex visibility: 8/8 visibility polygons, 3919.2/s, avg 11.9 faces and 1.4 boundary endpoints/polygon.
+Stage 2 candidates: 16 boundary points after 2 equal subdivision(s) per vertex-visibility interval.
+Candidate visibility: 16/16 visibility polygons, 20439.3/s, avg 11.2 faces and 5.8 boundary endpoints/polygon.
+Visibility-induced discretization ready: 16 candidates and 14 weighted boundary intervals; CDT has 12 vertices and 18 finite faces; total preprocessing 0.00477065 s.
+Visibility cache: 16/16 candidates, 23355.6/s, avg 11.2 faces, 6.9 blockers, 3.8 visible samples/candidate, cache 0.00 MiB
+Built visibility cache (0.00018692 MiB, 60 candidate-sample memberships).
+Expanded visibility cache to CSR in 4.647e-06 s (0.00 MiB evaluation memory).
+Removed 3 objective-equivalent candidate(s) with identical visibility rows; 13 representatives remain.
+Move evaluation will consider 13/16 candidate representatives.
+Built candidate-visible-polygon map: 24 candidate-polygon memberships, avg 1.85 visible polygons/search candidate in 0.00 s (no reverse polygon index).
+Built bounded-anchor reverse lookup: 24 candidate-polygon memberships in 0.00 s. It is not used by hot/cold 1-swap invalidation.
+Optimization timeline: "/mnt/data/anchor_smoke_output/timeline.csv"
+Move 1 add candidate=6 cardinality=1 score=1/2
+Swap local optimum at cardinality=1 after evaluating 12 replacements from 12 hot candidates; skipped 0 cold candidates [swap].
+Move 2 add candidate=10 cardinality=2 score=2/2
+Swap local optimum at cardinality=2 after evaluating 22 replacements from 11 hot candidates; skipped 0 cold candidates [swap].
+Move 3 add candidate=3 cardinality=3 score=2/2
+Swap local optimum at cardinality=3 after evaluating 30 replacements from 10 hot candidates; skipped 0 cold candidates [swap].
+Move 4 add candidate=0 cardinality=4 score=2/2
+Swap local optimum at cardinality=4 after evaluating 36 replacements from 9 hot candidates; skipped 0 cold candidates [swap].
+2/3-swap CP-SAT at cardinality=4: incumbent score=2/2, covered=80.00 m.
+2/3-swap anchor pool extension 1/4 [replacement]: candidate=1, best_replace_slot=4, best_replace_candidate=0, replacement_score=2, replacement_covered=80.00, addition_crossings=0, rescue_gain=0.00, novel_gain=0.00 m
+2/3-swap anchor pool extension 2/4 [replacement]: candidate=5, best_replace_slot=1, best_replace_candidate=6, replacement_score=2, replacement_covered=80.00, addition_crossings=0, rescue_gain=0.00, novel_gain=0.00 m
+2/3-swap anchor pool extension 3/4 [replacement]: candidate=11, best_replace_slot=2, best_replace_candidate=10, replacement_score=2, replacement_covered=80.00, addition_crossings=0, rescue_gain=0.00, novel_gain=0.00 m
+2/3-swap anchor pool extension 4/4 [novelty]: candidate=2, best_replace_slot=4, best_replace_candidate=0, replacement_score=2, replacement_covered=80.00, addition_crossings=0, rescue_gain=0.00, novel_gain=0.00 m
+2/3-swap pair-aware pool expansion: anchors=4, partners_per_anchor=1, polygon_samples=2, candidate_samples=8, base_pool=8, maximum_pool=12. Anchor relationships only guide pool construction; CP-SAT receives one flat pool.
+2/3-swap conditional partner: anchor=1, sampled_polygons=2, sampled_candidates=4, anchor_removed=0, partner=8, partner_removed=10, pair_score=2, pair_covered=70.00, synergy_score=0, synergy_covered=-10.00, improves_incumbent=no
+2/3-swap conditional partner: anchor=5, sampled_polygons=2, sampled_candidates=4, anchor_removed=6, partner=7, partner_removed=0, pair_score=2, pair_covered=80.00, synergy_score=0, synergy_covered=0.00, improves_incumbent=no
+2/3-swap conditional partner: anchor=11, sampled_polygons=1, sampled_candidates=3, anchor_removed=10, partner=9, partner_removed=0, pair_score=2, pair_covered=80.00, synergy_score=0, synergy_covered=0.00, improves_incumbent=no
+2/3-swap conditional partner: anchor=2, sampled_polygons=2, sampled_candidates=2, anchor_removed=0, partner=14, partner_removed=3, pair_score=2, pair_covered=70.00, synergy_score=0, synergy_covered=-10.00, improves_incumbent=no
+2/3-swap expanded raw pool complete: incumbents=4, anchors=4, conditional_partners=4, total_pool=12. CP-SAT may select any at-most-three extras.
+Pool model aggregation: 42 pool-sample memberships; 0 samples guaranteed covered, 14 vulnerable samples -> 12 vulnerable viewer-signature groups.
+2/3-swap CP-SAT solve returned no feasible solution: status=UNKNOWN, solve=0.00 s. Keeping incumbent.
+2/3-swap CP-SAT found no strict improvement (status=UNKNOWN). Advancing to the next add round.
+Selected 4 points after add/swap search with m=0.750000. QGIS snapshots are in "/mnt/data/anchor_smoke_output"
+Optimization timeline is in "/mnt/data/anchor_smoke_output/timeline.csv"
