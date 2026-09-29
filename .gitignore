@@ -1,0 +1,14 @@
+build/
+cmake-build-*/
+output/
+outputs/
+*.o
+*.a
+*.so
+*.out
+*.log
+*.cache
+CMakeFiles/
+CMakeCache.txt
+__pycache__/
+*.pyc

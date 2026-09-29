@@ -1,3 +1,0 @@
-same_parameter=0.5
-boundary_unique=2
-wiggled_unique=1

@@ -1,4 +1,0 @@
-two_squares candidates=27 offset_candidates=16 coverage_samples=35 coverage_offsets=0
-polygon_with_hole candidates=30 offset_candidates=16 coverage_samples=37 coverage_offsets=0
-all offset distances matched 0.001 within 1e-9
-outer-ring offsets point outside obstacle; hole-ring offsets point into hole

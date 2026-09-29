@@ -1,7 +1,0 @@
-two_squares: candidates=72, slides=16, subdivisions=48, coverage=93
-two_squares: subdivision max offset_m=0, coverage slides=0
-polygon_with_hole: candidates=72, slides=16, subdivisions=48, coverage=113
-polygon_with_hole: subdivision max offset_m=0, coverage slides=0
-subdivisions=1: Stage 2 candidates=24 (unchanged base set)
-subdivisions=3: Stage 2 candidates=72 = 24 base + 48 interior points
-CGAL verifier matched cached score on both subdivisions=3 fixtures.

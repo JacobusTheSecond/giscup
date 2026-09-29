@@ -1,1 +1,0 @@
-PASS: explicit three-stage pipeline; Stage 3 cannot append recursive candidates
